@@ -42,8 +42,12 @@ class PlaylistHandler {
     async deletePlaylistHandler(request, h) {
         const { id: playlistId } = request.params;
         const { id: credentialId } = request.auth.credentials;
-        // check if playlist is exist and user owned playlist
+        // check if playlist is exist, user owned playlist, and collaborator
         const verifyPlaylistId = await this._playlistService.checkPlaylistExist({
+            playlistId, credentialId,
+        });
+        // check if collaborator, it can't delete the playlist
+        await this._playlistService.verifyPlaylistCredential({
             playlistId, credentialId,
         });
         await this._playlistService.deletePlaylistById({ id: verifyPlaylistId });
@@ -67,7 +71,7 @@ class PlaylistHandler {
         // check if song is exist
         const verifySongId = await this._songService.checkSongExist(songId);
 
-        // check if playlist is exist and user owned playlist
+        // check if playlist is exist, user owned playlist, and collaborator
         const verifyPlaylistId = await this._playlistService.checkPlaylistExist({
             playlistId, credentialId,
         });
@@ -129,7 +133,7 @@ class PlaylistHandler {
         const { id: playlistId } = request.params;
         const { id: credentialId } = request.auth.credentials;
 
-        // check if playlist is exist and user owned playlist
+        // check if playlist is exist, user owned playlist, and collaborator
         const verifyPlaylistId = await this._playlistService.checkPlaylistExist({
             playlistId, credentialId,
         });

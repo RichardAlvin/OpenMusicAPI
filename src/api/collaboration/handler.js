@@ -1,41 +1,53 @@
 const autoBind = require('auto-bind');
 
 class CollaborationHandler {
-    constructor(service, validator) {
-        this._service = service;
+    constructor(collaborationService, playlistService, userService, validator) {
+        this._collaborationService = collaborationService;
+        this._playlistService = playlistService;
+        this._userService = userService;
         this._validator = validator;
 
         autoBind(this);
     }
 
     async postCollaborationHandler(request, h) {
-        this._validator.validateAlbumPayload(request.payload);
-        const { name, year } = request.payload;
+        this._validator.validateCollaborationPayload(request.payload);
+        const { id: credentialId } = request.auth.credentials;
+        const { playlistId, userId } = request.payload;
 
-        const albumId = await this._service.addAlbum({ name, year });
+        await this._playlistService.checkPlaylistExist({ playlistId, credentialId });
+        await this._userService.getUserById(userId);
+        const collaborationId = await this._collaborationService.addCollaboration({
+            playlistId, userId,
+        });
+
         const response = h.response({
             status: 'success',
-            message: 'Album berhasil ditambahkan',
+            message: 'Kolaborasi berhasil ditambahkan',
             data: {
-                albumId,
+                collaborationId,
             },
         });
         response.code(201);
-
         return response;
     }
 
-    async deleteCollaborationHandler(request, h) {
-        const { id } = request.params;
-        await this._service.deleteAlbumById(id);
+    async deleteCollaborationHandler(request) {
+        this._validator.validateCollaborationPayload(request.payload);
+        const { id: credentialId } = request.auth.credentials;
+        const { playlistId, userId } = request.payload;
 
-        const response = h.response({
-            status: 'success',
-            message: 'Album berhasil dihapus',
+        await this._playlistService.checkPlaylistExist({ playlistId, credentialId });
+        // check if collaborator, it can't delete the playlist collaborator
+        await this._playlistService.verifyPlaylistCredential({
+            playlistId, credentialId,
         });
-        response.code(200);
+        await this._collaborationService.deleteCollaboration(playlistId, userId);
 
-        return response;
+        return {
+            status: 'success',
+            message: 'Kolaborasi berhasil dihapus',
+        };
     }
 }
 

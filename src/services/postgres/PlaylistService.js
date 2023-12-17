@@ -29,9 +29,11 @@ class PlaylistService {
 
     async getPlaylists({ credentialId }) {
         const query = {
-            text: `SELECT playlist.*, users.username FROM playlist 
+            text: `SELECT playlist.*, users.username FROM playlist
+            LEFT JOIN playlist_collaboration ON playlist."id" = playlist_collaboration."playlistId" 
             LEFT JOIN users ON playlist."ownerId" = users.id 
-            WHERE playlist."ownerId" = $1`,
+            WHERE playlist."ownerId" = $1 or playlist_collaboration."userId" = $1
+            GROUP BY playlist.id, users.username`,
             values: [credentialId],
         };
         const result = await this._pool.query(query);
@@ -79,8 +81,9 @@ class PlaylistService {
         const queryPlaylist = {
             text: `SELECT playlist.id, playlist.name, users.username
             FROM playlist
+            LEFT JOIN playlist_collaboration ON playlist.id = playlist_collaboration."playlistId"
             LEFT JOIN users ON playlist."ownerId" = users.id
-            WHERE playlist.id = $1 AND playlist."ownerId" = $2`,
+            WHERE playlist.id = $1 AND (playlist."ownerId" = $2 OR playlist_collaboration."userId" = $2)`,
             values: [playlistId, ownerId],
         };
         const resultPlaylist = await this._pool.query(queryPlaylist);
@@ -169,12 +172,36 @@ class PlaylistService {
             throw new NotFoundError('Playlist tidak ditemukan.');
         }
 
+        // check if user is collaboration of the playlist
+        const queryCollaborator = {
+            text: 'SELECT * FROM playlist_collaboration WHERE "userId" = $1 AND "playlistId" = $2',
+            values: [credentialId, playlistId],
+        };
+
+        const resultCollaborator = await this._pool.query(queryCollaborator);
+        if (resultCollaborator.rows.length) {
+            return resultCollaborator.rows[0].playlistId;
+        }
+
         const playlistOwnerId = result.rows[0].ownerId;
         if (playlistOwnerId !== credentialId) {
             throw new AuthorizationError('Anda tidak berhak mengakses resource ini');
         }
 
         return result.rows[0].id;
+    }
+
+    async verifyPlaylistCredential({ playlistId, credentialId }) {
+        const query = {
+            text: 'SELECT playlist.id, playlist."ownerId" FROM playlist WHERE "id" = $1 AND "ownerId" = $2',
+            values: [playlistId, credentialId],
+        };
+
+        const result = await this._pool.query(query);
+
+        if (!result.rows.length) {
+            throw new AuthorizationError('Anda tidak berhak mengakses resource ini');
+        }
     }
 }
 
