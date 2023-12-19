@@ -35,7 +35,21 @@ const collaboration = require('./api/collaboration');
 const CollaborationService = require('./services/postgres/CollaborationService');
 const CollaborationValidator = require('./validator/collaboration');
 
+// export playlist
+const _export = require('./api/export');
+const ProducerService = require('./services/rabbitmq/ProducerService');
+const ExportValidator = require('./validator/export');
+
 const init = async () => {
+    // const cacheService = new CacheService();
+    const collaborationService = new CollaborationService();
+    const albumService = new AlbumService();
+    const songService = new SongService();
+    const playlistService = new PlaylistService();
+    const userService = new UserService();
+    const authenticationService = new AuthenticationService();
+    // const storageService = new StorageService();
+
     const server = Hapi.server({
         port: process.env.PORT,
         host: process.env.NODE_ENV !== 'production' ? 'localhost' : '0.0.0.0',
@@ -74,29 +88,29 @@ const init = async () => {
         {
             plugin: album,
             options: {
-                service: new AlbumService(),
+                service: albumService,
                 validator: AlbumValidator,
             },
         },
         {
             plugin: song,
             options: {
-                service: new SongService(),
+                service: songService,
                 validator: SongValidator,
             },
         },
         {
             plugin: user,
             options: {
-                service: new UserService(),
+                service: userService,
                 validator: UserValidator,
             },
         },
         {
             plugin: authentication,
             options: {
-                authenticationService: new AuthenticationService(),
-                userService: new UserService(),
+                authenticationService,
+                userService,
                 tokenManager: TokenManager,
                 validator: AuthenticationValidator,
             },
@@ -104,18 +118,25 @@ const init = async () => {
         {
             plugin: playlist,
             options: {
-                playlistService: new PlaylistService(),
-                songService: new SongService(),
+                playlistService,
+                songService,
                 validator: PlaylistValidator,
             },
         },
         {
             plugin: collaboration,
             options: {
-                collaborationService: new CollaborationService(),
-                playlistService: new PlaylistService(),
-                userService: new UserService(),
+                collaborationService,
+                playlistService,
+                userService,
                 validator: CollaborationValidator,
+            },
+        },
+        {
+            plugin: _export,
+            options: {
+                service: ProducerService,
+                validator: ExportValidator,
             },
         },
     ]);
