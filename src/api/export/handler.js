@@ -18,7 +18,6 @@ class ExportHandler {
         await this._playlistService.checkPlaylistExist({ playlistId, credentialId });
 
         const message = {
-            userId: request.auth.credentials.id,
             playlistId,
             targetEmail: request.payload.targetEmail,
         };
