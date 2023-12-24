@@ -2,6 +2,9 @@ require('dotenv').config();
 
 const Hapi = require('@hapi/hapi');
 const Jwt = require('@hapi/jwt');
+const Inert = require('@hapi/inert');
+const path = require('path');
+
 const ClientError = require('./exceptions/ClientError');
 
 //  album
@@ -40,15 +43,21 @@ const _export = require('./api/export');
 const ProducerService = require('./services/rabbitmq/ProducerService');
 const ExportValidator = require('./validator/export');
 
+// storage service
+const StorageService = require('./services/storage/StorageService');
+
+// cache service
+const CacheService = require('./services/redis/CacheService');
+
 const init = async () => {
-    // const cacheService = new CacheService();
+    const cacheService = new CacheService();
     const collaborationService = new CollaborationService();
-    const albumService = new AlbumService();
+    const albumService = new AlbumService(cacheService);
     const songService = new SongService();
     const playlistService = new PlaylistService();
     const userService = new UserService();
     const authenticationService = new AuthenticationService();
-    // const storageService = new StorageService();
+    const storageService = new StorageService(path.resolve(__dirname, 'api/album/uploads/covers'));
 
     const server = Hapi.server({
         port: process.env.PORT,
@@ -64,6 +73,9 @@ const init = async () => {
     await server.register([
         {
             plugin: Jwt,
+        },
+        {
+            plugin: Inert,
         },
     ]);
 
@@ -88,7 +100,8 @@ const init = async () => {
         {
             plugin: album,
             options: {
-                service: albumService,
+                albumService,
+                storageService,
                 validator: AlbumValidator,
             },
         },
@@ -135,7 +148,8 @@ const init = async () => {
         {
             plugin: _export,
             options: {
-                service: ProducerService,
+                ProducerService,
+                playlistService,
                 validator: ExportValidator,
             },
         },
